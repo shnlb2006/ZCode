@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "revision": 33,
+  "revision": 34,
   "config": {
     "providerConfigRules": {
       "templateRules": [
@@ -2509,6 +2509,21 @@
               },
               "maxOutputTokens": {
                 "map": "{'max_tokens': maxOutputTokens}"
+              }
+            }
+          }
+        },
+        {
+          "modelMatch": ".*MiniMax-M3\\.1.*",
+          "apiTypeMatch": "anthropic-messages",
+          "config": {
+            "optionSpecs": {
+              "reasoningLevel": {
+                "values": [
+                  "disabled",
+                  "enabled"
+                ],
+                "map": "reasoningLevel == \"disabled\"\n  ? {\n      \"thinking\": null,\n      \"output_config\": null\n    }\n  : {\n      \"thinking\": {\n        \"type\": \"adaptive\"\n      },\n      \"output_config\": {\n        \"effort\": reasoningLevel == \"enabled\" ? \"high\" : reasoningLevel\n      }\n    }"
               }
             }
           }

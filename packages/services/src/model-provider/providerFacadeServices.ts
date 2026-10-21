@@ -19,6 +19,7 @@ import {
 import { createServiceDescriptor } from "../descriptors.js";
 import type { ModelConnectivityResult } from "@zcode/shared";
 import { createServiceLogger } from "../logger/serviceLogger.js";
+import { fetchProviderAvailableModels } from "./providerSettingsConnectivity.js";
 
 export type {
   ProviderSettingsProviderView,
@@ -68,6 +69,10 @@ export interface IProviderSettingsService {
   testModelConnectivity(
     input: ProviderSettingsConnectivityRequest,
   ): Promise<ModelConnectivityResult>;
+  /** 按设置页草稿（未保存也可用）探测供应商标准 /models 端点，返回去重排序后的模型 ID。 */
+  fetchAvailableModels(
+    input: ProviderAvailableModelsRequest,
+  ): Promise<ProviderAvailableModelsResult>;
 }
 
 export const IProviderSettingsService = createServiceDescriptor<IProviderSettingsService>(
@@ -91,6 +96,16 @@ export interface ProviderSettingsConnectivityRequest {
 export type ProviderSettingsConnectivityTester = (
   input: ProviderSettingsConnectivityTestInput,
 ) => Promise<ModelConnectivityResult>;
+
+export interface ProviderAvailableModelsRequest {
+  readonly apiType: "anthropic-messages" | "openai-chat-completions" | "openai-responses";
+  readonly baseUrl: string;
+  readonly apiKey?: string;
+}
+
+export interface ProviderAvailableModelsResult {
+  readonly models: readonly string[];
+}
 
 export interface IModelSelectionService {
   readonly onDidChange: Event<ModelSelectionView>;
@@ -165,6 +180,8 @@ export function createProviderSettingsService(
       await ensureReady();
       return facade.setPersonalModelEnabled(providerId, modelId, enabled);
     },
+    // 草稿探测是纯只读 HTTP，不依赖 facade 状态，也不要求 provider 已保存或可用。
+    fetchAvailableModels: async (input) => fetchProviderAvailableModels(input),
     testModelConnectivity: async (input) => {
       await ensureReady();
       if (!testConnectivity) {

@@ -14,6 +14,7 @@ import {
 } from "@zcode/provider";
 import { logger } from "@/logger.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useServices } from "@/hooks/useServices.js";
 import { Switch } from "@/components/ui/switch.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { isImeComposingKeyEvent } from "@/lib/imeComposition.js";
@@ -185,6 +186,7 @@ export function InlineEditableProviderCard({
 }) {
   const { intl } = useZCodeIntl();
   const { dismissFeedback, showFeedback } = useProviderDetailFeedback();
+  const { providerSettingsService } = useServices();
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(getProviderFormLabel(provider));
   const [apiFormat, setApiFormat] = useState<ProviderApiType>(
@@ -194,6 +196,16 @@ export function InlineEditableProviderCard({
   const [apiKeyValue, setApiKeyValue] = useState(getProviderFormApiKey(provider));
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [savingEnabled, setSavingEnabled] = useState(false);
+  // 探测用连接草稿（未保存的 baseUrl/Key 也生效），与连接区输入保持同一事实。
+  const fetchAvailableModels = useCallback(
+    () =>
+      providerSettingsService.fetchAvailableModels({
+        apiType: apiFormat,
+        baseUrl: baseUrlValue,
+        apiKey: apiKeyValue || undefined,
+      }),
+    [providerSettingsService, apiFormat, baseUrlValue, apiKeyValue],
+  );
   const authoritativeModels = useMemo(
     () => resolveVisibleProviderModelsForEdit(provider),
     [provider],
@@ -854,6 +866,7 @@ export function InlineEditableProviderCard({
           onModelEnabledChange={handleModelEnabledChange}
           onDeleteModel={handleDeleteModel}
           onAddModel={handleAddModel}
+          onFetchAvailableModels={fetchAvailableModels}
           onReorderModelIds={onReorderModelIds ? handleReorderModelIds : undefined}
           settingsRevision={settingsRevision ?? 0}
         />

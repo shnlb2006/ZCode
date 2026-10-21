@@ -361,6 +361,7 @@ export function ProviderModelsSection({
   onModelEnabledChange,
   onDeleteModel,
   onAddModel,
+  onFetchAvailableModels,
   onReorderModelIds,
   settingsRevision = 0,
 }: {
@@ -378,6 +379,7 @@ export function ProviderModelsSection({
   onDeleteModel: (modelId: string) => void;
   onModelEnabledChange?: (modelId: string, enabled: boolean) => void | Promise<void>;
   onAddModel: (model: ProviderSettingsFormModel) => void | Promise<void>;
+  onFetchAvailableModels?: () => Promise<{ models: readonly string[] }>;
   onReorderModelIds?: (modelIds: string[]) => void;
   settingsRevision?: number;
 }) {
@@ -569,6 +571,7 @@ export function ProviderModelsSection({
           mode="add"
           open={addDialogOpen}
           draft={addDraft}
+          fetchAvailableModels={onFetchAvailableModels}
           draftErrorMessage={addCommitError ?? addDraftErrorMessage}
           draftErrorField={addDraftErrorField}
           inheritedConfig={editor.inheritedConfig}
