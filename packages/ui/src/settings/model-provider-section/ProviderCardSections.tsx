@@ -356,6 +356,7 @@ export function ProviderModelsSection({
   providerEnabled = true,
   providerAccess,
   models,
+  providerObject,
   onTestModel,
   onModelCommit,
   onModelEnabledChange,
@@ -370,6 +371,8 @@ export function ProviderModelsSection({
   providerEnabled?: boolean;
   providerAccess?: ProviderConfigObject["access"];
   models: ProviderSettingsFormModel[];
+  // 完整 provider 用于在 Section 内独立探测（避免依赖 Card 的 closure thunk）。
+  providerObject?: ProviderSettingsFormProvider;
   onTestModel?: (model: string) => Promise<ModelConnectivityResult>;
   onModelCommit: (
     originalModelId: string,
@@ -379,6 +382,7 @@ export function ProviderModelsSection({
   onDeleteModel: (modelId: string) => void;
   onModelEnabledChange?: (modelId: string, enabled: boolean) => void | Promise<void>;
   onAddModel: (model: ProviderSettingsFormModel) => void | Promise<void>;
+  // 卡片唯一暴露给对话框的探测能力：闭包内已封装「解析 baseUrl/apiKey/apiType → 探测」。
   onFetchAvailableModels?: () => Promise<{ models: readonly string[] }>;
   onReorderModelIds?: (modelIds: string[]) => void;
   settingsRevision?: number;
@@ -410,6 +414,32 @@ export function ProviderModelsSection({
     resolve: resolveAddModelConfig,
   });
   const { draft: addDraft } = editor;
+
+  // 在 Section 内直接构造探测 input：以完整 provider 的有效 config 为基址；表单草稿暂未
+  // 存盘时 baseUrl/apiKey/apiType 仍来自 effectiveConfig。Card 同时仍提供自己的 closure，
+  // 调用方只填入其一：先看 Card 透传的 closure，没有时回落到本兜底。
+  const fetchAvailableModelsFromProviderObject = useCallback(
+    async () => {
+      if (!providerObject) return { models: [] as readonly string[] };
+      const api = providerObject.config.api;
+      if (!api || api.type === null || api.type === undefined) {
+        return { models: [] as readonly string[] };
+      }
+      const access = providerObject.config.access;
+      const apiKey =
+        access && typeof access === "object" && "apiKey" in access
+          ? (access as { apiKey?: string | null }).apiKey ?? undefined
+          : undefined;
+      return providerSettingsService.fetchAvailableModels({
+        apiType: api.type,
+        baseUrl: api.baseUrl ?? "",
+        ...(apiKey ? { apiKey } : {}),
+      });
+    },
+    [providerObject, providerSettingsService],
+  );
+  const handleAddFetchAvailableModels =
+    onFetchAvailableModels ?? fetchAvailableModelsFromProviderObject;
 
   const openAddDialog = useCallback(() => {
     editor.reset(createEmptyModel());
@@ -571,7 +601,7 @@ export function ProviderModelsSection({
           mode="add"
           open={addDialogOpen}
           draft={addDraft}
-          fetchAvailableModels={onFetchAvailableModels}
+          fetchAvailableModels={handleAddFetchAvailableModels}
           draftErrorMessage={addCommitError ?? addDraftErrorMessage}
           draftErrorField={addDraftErrorField}
           inheritedConfig={editor.inheritedConfig}
