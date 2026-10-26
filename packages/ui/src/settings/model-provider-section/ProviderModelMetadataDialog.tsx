@@ -60,7 +60,6 @@ export function ProviderModelMetadataDialog({
   modelIdReadOnly = false,
   saving = false,
   modelDefaultsLoaded = false,
-  fetchAvailableModels,
   onModelIdBlur,
 }: {
   mode?: "add" | "edit";
@@ -79,7 +78,6 @@ export function ProviderModelMetadataDialog({
   modelIdReadOnly?: boolean;
   saving?: boolean;
   modelDefaultsLoaded?: boolean;
-  fetchAvailableModels?: () => Promise<{ models: readonly string[] }>;
   onModelIdBlur?: () => void;
 }) {
   const { intl } = useZCodeIntl();
@@ -103,34 +101,6 @@ export function ProviderModelMetadataDialog({
   const shouldFocusContextWindowInput = mode === "edit";
   const addModelConfigResolutionPending = smart && modelConfigResolutionPending;
   const compositionActiveRef = useRef(false);
-  const [fetchState, setFetchState] = useState<
-    | { phase: "idle" }
-    | { phase: "loading" }
-    | { phase: "error"; message: string }
-    | { phase: "ready"; models: readonly string[] }
-  >({ phase: "idle" });
-  const [fetchFilter, setFetchFilter] = useState("");
-  const fetchingModels = fetchState.phase === "loading";
-  const fetchedModels =
-    fetchState.phase === "ready"
-      ? fetchState.models.filter((model) =>
-          model.toLowerCase().includes(fetchFilter.trim().toLowerCase()),
-        )
-      : [];
-  const handleFetchAvailableModels = async () => {
-    if (!fetchAvailableModels || fetchingModels) return;
-    setFetchState({ phase: "loading" });
-    setFetchFilter("");
-    try {
-      const { models } = await fetchAvailableModels();
-      setFetchState({ phase: "ready", models });
-    } catch (error) {
-      setFetchState({
-        phase: "error",
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
   const handleTechnicalInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== "Enter") {
       return;
@@ -227,74 +197,6 @@ export function ProviderModelMetadataDialog({
                   onCompositionEnd={handleCompositionEnd}
                   onKeyDown={handleTechnicalInputKeyDown}
                 />
-                {mode === "add" && fetchAvailableModels ? (
-                  <div className="mt-2 space-y-2" data-model-fetch-available="true">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        disabled={fetchingModels}
-                        onClick={() => {
-                          void handleFetchAvailableModels();
-                        }}
-                      >
-                        {fetchingModels ? (
-                          <Loader2Icon data-icon="inline-start" aria-hidden="true" className="size-4 animate-spin" />
-                        ) : null}
-                        {intl.formatMessage({ id: "settings.modelProvider.fetchModels.action" })}
-                      </Button>
-                      {fetchState.phase === "ready" && fetchState.models.length > 0 ? (
-                        <Input
-                          {...TECHNICAL_INPUT_ATTRIBUTES}
-                          type="text"
-                          size="sm"
-                          className="max-w-56"
-                          value={fetchFilter}
-                          placeholder={intl.formatMessage({
-                            id: "settings.modelProvider.fetchModels.filter",
-                          })}
-                          onChange={(event) => setFetchFilter(event.target.value)}
-                        />
-                      ) : null}
-                    </div>
-                    {fetchState.phase === "loading" ? (
-                      <p className="text-ui-sm text-foreground-subtle">
-                        {intl.formatMessage({ id: "settings.modelProvider.fetchModels.loading" })}
-                      </p>
-                    ) : null}
-                    {fetchState.phase === "error" ? (
-                      <p className="text-ui-sm text-destructive">{fetchState.message}</p>
-                    ) : null}
-                    {fetchState.phase === "ready" && fetchState.models.length === 0 ? (
-                      <p className="text-ui-sm text-foreground-subtle">
-                        {intl.formatMessage({ id: "settings.modelProvider.fetchModels.empty" })}
-                      </p>
-                    ) : null}
-                    {fetchState.phase === "ready" && fetchedModels.length > 0 ? (
-                      <div
-                        className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-input-border bg-input p-1"
-                        data-model-fetch-options="true"
-                      >
-                        {fetchedModels.map((model) => (
-                          <button
-                            key={model}
-                            type="button"
-                            className={cn(
-                              "block w-full truncate rounded-md px-2 py-1 text-left font-mono text-ui-sm hover:bg-accent",
-                              draft.idValue === model && "bg-accent",
-                            )}
-                            onClick={() => {
-                              onDraftChange({ idValue: model });
-                            }}
-                          >
-                            {model}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
               </div>
             </div>
           </ModelSettingsGroup>

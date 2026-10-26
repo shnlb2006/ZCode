@@ -20,9 +20,19 @@ import {
   TID_MODEL_PROVIDER_MODEL_INPUT,
   TID_MODEL_PROVIDER_NAME_EDIT_BUTTON,
   TID_MODEL_PROVIDER_NAME_INPUT,
+  TID_MODEL_PROVIDER_SYNC_MODELS_BUTTON,
   testId,
 } from "@zcode/shared/test-ids";
-import { InfoIcon, LockKeyholeIcon, Plus, Pencil, Trash2, MoreHorizontal } from "lucide-react";
+import {
+  InfoIcon,
+  Loader2Icon,
+  LockKeyholeIcon,
+  Plus,
+  Pencil,
+  RefreshCwIcon,
+  Trash2,
+  MoreHorizontal,
+} from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
 import {
@@ -46,6 +56,7 @@ import {
   resolveProviderConnectionApiFormatDisplayLabel,
 } from "@/settings/model-provider-section/ProviderApiFormatSelect.js";
 import { SortableProviderModelList } from "@/settings/model-provider-section/SortableProviderModelList.js";
+import { useProviderDetailFeedback } from "@/settings/model-provider-section/ProviderDetailFeedback.js";
 import { useProviderModelDraft } from "@/settings/model-provider-section/useProviderModelDraft.js";
 import { ProviderLogo } from "@/settings/model-provider-section/ProviderLogo.js";
 import type { ProviderConfigObject } from "@zcode/provider";
@@ -441,6 +452,95 @@ export function ProviderModelsSection({
   const handleAddFetchAvailableModels =
     onFetchAvailableModels ?? fetchAvailableModelsFromProviderObject;
 
+  // 一键同步：拉取供应商全部可用模型，把列表中还没有的模型按推荐配置批量加入。
+  // 入口在「添加模型」按钮左侧；添加弹窗内的逐个挑选入口已按产品决定移除。
+  const { showFeedback } = useProviderDetailFeedback();
+  const [syncingModels, setSyncingModels] = useState(false);
+  const syncingModelsRef = useRef(false);
+  const handleSyncAvailableModels = useCallback(async () => {
+    if (syncingModelsRef.current) return;
+    syncingModelsRef.current = true;
+    setSyncingModels(true);
+    const feedbackKey = `sync-models:${providerId}`;
+    try {
+      const { models: available } = await handleAddFetchAvailableModels();
+      const existing = new Set(models.map((model) => model.modelId));
+      const missing = [...new Set(available.map((modelId) => modelId.trim()))].filter(
+        (modelId) => modelId && !existing.has(modelId),
+      );
+      if (missing.length === 0) {
+        showFeedback({
+          key: feedbackKey,
+          message: intl.formatMessage({ id: "settings.modelProvider.syncModels.upToDate" }),
+          state: "success",
+        });
+        return;
+      }
+      showFeedback({
+        key: feedbackKey,
+        message: intl.formatMessage({ id: "settings.modelProvider.syncModels.loading" }, {
+          added: 0,
+          total: missing.length,
+        }),
+        state: "pending",
+      });
+      let added = 0;
+      for (const modelId of missing) {
+        // 与添加弹窗的智能推荐同一事实来源：公共解析只取推荐基线，不夹带个人覆盖。
+        const resolution = await providerSettingsService.resolveModelConfig({
+          providerId,
+          modelId,
+        });
+        await onAddModel({
+          ...createEmptyModel(),
+          modelId,
+          useRecommendedConfig: true,
+          inheritedConfig: resolution.inheritedConfig,
+          config: resolution.inheritedConfig,
+          hasPersonalConfig: false,
+          personalConfig: {},
+        });
+        added += 1;
+        showFeedback({
+          key: feedbackKey,
+          message: intl.formatMessage({ id: "settings.modelProvider.syncModels.loading" }, {
+            added,
+            total: missing.length,
+          }),
+          state: "pending",
+        });
+      }
+      showFeedback({
+        key: feedbackKey,
+        message: intl.formatMessage(
+          { id: "settings.modelProvider.syncModels.done" },
+          { count: added },
+        ),
+        state: "success",
+      });
+    } catch (error) {
+      showFeedback({
+        key: feedbackKey,
+        message: intl.formatMessage(
+          { id: "settings.modelProvider.syncModels.error" },
+          { message: error instanceof Error ? error.message : String(error) },
+        ),
+        state: "failure",
+      });
+    } finally {
+      syncingModelsRef.current = false;
+      setSyncingModels(false);
+    }
+  }, [
+    handleAddFetchAvailableModels,
+    intl,
+    models,
+    onAddModel,
+    providerId,
+    providerSettingsService,
+    showFeedback,
+  ]);
+
   const openAddDialog = useCallback(() => {
     editor.reset(createEmptyModel());
     setAddDraftErrorField(null);
@@ -509,17 +609,37 @@ export function ProviderModelsSection({
         <span className="text-ui-base text-foreground-subtle">
           {intl.formatMessage({ id: "settings.modelProvider.models" })}
         </span>
-        <Button
-          type="button"
-          variant="secondary"
-          size="default"
-          className="rounded-lg"
-          data-testid={TID_MODEL_PROVIDER_ADD_MODEL_BUTTON}
-          onClick={openAddDialog}
-        >
-          <Plus data-icon="inline-start" aria-hidden="true" />
-          {intl.formatMessage({ id: "settings.modelProvider.addModel" })}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="default"
+            className="rounded-lg"
+            data-testid={TID_MODEL_PROVIDER_SYNC_MODELS_BUTTON}
+            disabled={syncingModels}
+            onClick={() => {
+              void handleSyncAvailableModels();
+            }}
+          >
+            {syncingModels ? (
+              <Loader2Icon data-icon="inline-start" aria-hidden="true" className="size-4 animate-spin" />
+            ) : (
+              <RefreshCwIcon data-icon="inline-start" aria-hidden="true" />
+            )}
+            {intl.formatMessage({ id: "settings.modelProvider.syncModels.action" })}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="default"
+            className="rounded-lg"
+            data-testid={TID_MODEL_PROVIDER_ADD_MODEL_BUTTON}
+            onClick={openAddDialog}
+          >
+            <Plus data-icon="inline-start" aria-hidden="true" />
+            {intl.formatMessage({ id: "settings.modelProvider.addModel" })}
+          </Button>
+        </div>
       </div>
       {models.length > 0 ? (
         <div className="overflow-hidden rounded-lg border border-input-border bg-input">
@@ -601,7 +721,6 @@ export function ProviderModelsSection({
           mode="add"
           open={addDialogOpen}
           draft={addDraft}
-          fetchAvailableModels={handleAddFetchAvailableModels}
           draftErrorMessage={addCommitError ?? addDraftErrorMessage}
           draftErrorField={addDraftErrorField}
           inheritedConfig={editor.inheritedConfig}

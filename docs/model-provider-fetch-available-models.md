@@ -6,18 +6,18 @@
 
 ## 产品规则
 
-- 入口：新增模型对话框（`mode === "add"`）中模型 ID 输入框下方的「自动获取模型」按钮；编辑态不展示。
-- 输入为连接草稿（当前表单的 `api.type` / `baseUrl` / `apiKey`），**未保存即可探测**；修改连接信息后需重新点击获取。
-- 探测是纯只读 GET，不写任何落盘状态；结果为去重排序后的模型 ID 列表，点击条目回填模型 ID 输入框（可输入关键字过滤）。
+- 入口：模型列表区头部「同步模型」按钮，位于「添加模型」按钮**左侧**；点击即拉取供应商全部可用模型，把列表中还没有的模型按推荐配置批量加入，一次点击完成同步。（2026-10-26 调整：原先位于添加模型对话框内的点选回填入口已移除。）
+- 输入为连接草稿（当前表单的 `api.type` / `baseUrl` / `apiKey`），**未保存即可探测**；修改连接信息后需重新点击同步。
+- 探测是纯只读 GET；结果去重排序后与现有成员做差集，逐个经 `resolveModelConfig` 取推荐基线并走与手动添加相同的 `onAddModel` 保存事务；无新增时提示已是最新，结果通过 Provider Detail Feedback 呈现（pending 进度 / success / failure）。
 - 端点拼接：openai 系 `{base}/models`；anthropic-messages 若 base 未以 `/v1` 结尾则补 `/v1/models`（与执行链 `normalizeAnthropicBaseURL` 同一边界约定）。
 - 鉴权头：`Authorization: Bearer <key>` 恒带；anthropic-messages 额外带 `x-api-key` 与 `anthropic-version: 2023-06-01`，覆盖 MiniMax（Bearer）与 Anthropic 官方（x-api-key）两类网关。
-- 响应兼容 `{ data: [{ id }] }` 与字符串数组；超时 15s；非 2xx 抛出带状态码错误并展示在对话框内。
+- 响应兼容 `{ data: [{ id }] }` 与字符串数组；超时 15s；非 2xx 抛出带状态码错误并展示在反馈条内。
 
 ## 接口与所有者
 
 - 服务：`IProviderSettingsService.fetchAvailableModels(input): Promise<{ models: readonly string[] }>`（`packages/services/src/model-provider/providerFacadeServices.ts`）。
 - 实现：`packages/services/src/model-provider/providerAvailableModels.ts`，纯函数、无 facade 依赖；传输由 services RPC 按 descriptor 代理（与 `testModelConnectivity` 同层）。
-- UI 状态：`ProviderModelMetadataDialog` 组件内局部状态（idle/loading/error/ready），不属于任何全局 store。
+- UI 状态：`ProviderModelsSection` 组件内局部同步状态（syncingModels），不属于任何全局 store；结果反馈走 `ProviderDetailFeedback`。
 
 ## MiniMax M3.1 自适应思考适配（随本特性一并修复）
 
@@ -27,7 +27,8 @@
 
 ## 验收场景
 
-1. openai 兼容供应商填 baseUrl + Key → 自动获取 → 列表出现且点选回填。
-2. MiniMax（anthropic-messages，base 不含 /v1）→ 自动获取命中 `{base}/v1/models`。
-3. Key 错误 → 对话框内展示 HTTP 401 错误，不打断添加流程。
-4. MiniMax-M3.1-Flash 思考关 → 请求体不含 `thinking` 字段，不再 400。
+1. openai 兼容供应商填 baseUrl + Key → 点「同步模型」→ 供应商返回的全部缺失模型一次性出现在模型列表。
+2. 再次点击同步 → 无新增模型时提示「已是最新」，不重复添加。
+3. MiniMax（anthropic-messages，base 不含 /v1）→ 同步命中 `{base}/v1/models`。
+4. Key 错误 → 反馈条展示 HTTP 401 错误，已添加的模型保留（部分成功部分失败时失败前缀不回滚）。
+5. MiniMax-M3.1-Flash 思考关 → 请求体不含 `thinking` 字段，不再 400。
