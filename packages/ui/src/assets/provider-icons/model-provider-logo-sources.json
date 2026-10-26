@@ -119,6 +119,15 @@
       "sourceUrl": "https://avatars.githubusercontent.com/u/130314967?v=4",
       "sourceOwner": "xAI",
       "normalization": "Official GitHub organization avatar downsampled from 460x460 to 80x80 RGB."
+    },
+    {
+      "brand": "StepFun",
+      "file": "model-provider-stepfun.png",
+      "providerIds": ["stepfun-step-plan"],
+      "sourceUrl": "https://github.com/stepfun-ai.png?size=512",
+      "sourcePage": "https://github.com/stepfun-ai",
+      "sourceOwner": "StepFun",
+      "normalization": "Official GitHub organization avatar (JPEG served without format negotiation) resized unchanged from 512x512 to 80x80 RGB PNG on 2026-10-26."
     }
   ]
 }

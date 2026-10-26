@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "revision": 34,
+  "revision": 35,
   "config": {
     "providerConfigRules": {
       "templateRules": [
@@ -338,6 +338,33 @@
             "logo": {
               "type": "builtin",
               "key": "xiaomi-mimo"
+            }
+          }
+        },
+        {
+          "templateId": "stepfun-step-plan",
+          "templateNameMap": {
+            "zh-CN": "阶跃 Step Plan",
+            "en-US": "StepFun Step Plan"
+          },
+          "config": {
+            "access": {
+              "type": "api-key",
+              "apiKeyManagementUrl": "https://platform.stepfun.com/interface-key"
+            },
+            "api": {
+              "type": "anthropic-messages",
+              "baseUrl": "https://api.stepfun.com/step_plan"
+            },
+            "builtinModelIds": [
+              "step-5-preview",
+              "step-3.7-flash",
+              "step-3.5-flash-2603",
+              "step-3.5-flash"
+            ],
+            "logo": {
+              "type": "builtin",
+              "key": "stepfun"
             }
           }
         },
@@ -2484,6 +2511,76 @@
               },
               "maxOutputTokens": {
                 "max": 65536
+              }
+            }
+          }
+        },
+        {
+          "modelMatch": ".*step-5-preview.*",
+          "config": {
+            "properties": {
+              "inputFormat": {
+                "supportsImage": true,
+                "supportsVideo": true
+              }
+            },
+            "optionSpecs": {
+              "reasoningLevel": {
+                "values": ["low", "medium", "high"]
+              },
+              "maxOutputTokens": {
+                "max": 65536
+              }
+            }
+          }
+        },
+        {
+          "modelMatch": ".*step-3\\.7-flash.*",
+          "config": {
+            "properties": {
+              "contextWindow": 262144,
+              "inputFormat": {
+                "supportsImage": true,
+                "supportsVideo": true
+              }
+            },
+            "optionSpecs": {
+              "reasoningLevel": {
+                "values": ["low", "medium", "high"]
+              }
+            }
+          }
+        },
+        {
+          "modelMatch": ".*step-3\\.5-flash.*",
+          "config": {
+            "properties": {
+              "contextWindow": 262144,
+              "inputFormat": {
+                "supportsImage": false,
+                "supportsVideo": false
+              }
+            },
+            "optionSpecs": {
+              "reasoningLevel": {
+                "values": ["disabled", "enabled"]
+              }
+            }
+          }
+        },
+        {
+          "modelMatch": ".*step-3\\.5-flash-2603.*",
+          "config": {
+            "properties": {
+              "contextWindow": 262144,
+              "inputFormat": {
+                "supportsImage": false,
+                "supportsVideo": false
+              }
+            },
+            "optionSpecs": {
+              "reasoningLevel": {
+                "values": ["low", "high"]
               }
             }
           }
@@ -4824,6 +4921,34 @@
           "templateId": "xiaomi-mimo-token-plan",
           "config": {
             "enabled": true
+          }
+        },
+        {
+          "modelId": "step-5-preview",
+          "templateId": "stepfun-step-plan",
+          "config": {
+            "enabled": true
+          }
+        },
+        {
+          "modelId": "step-3.7-flash",
+          "templateId": "stepfun-step-plan",
+          "config": {
+            "enabled": true
+          }
+        },
+        {
+          "modelId": "step-3.5-flash-2603",
+          "templateId": "stepfun-step-plan",
+          "config": {
+            "enabled": false
+          }
+        },
+        {
+          "modelId": "step-3.5-flash",
+          "templateId": "stepfun-step-plan",
+          "config": {
+            "enabled": false
           }
         },
         {

@@ -11,6 +11,7 @@ import deepSeekLogo from "@/assets/provider-icons/model-provider-deepseek.png";
 import miniMaxLogo from "@/assets/provider-icons/model-provider-minimax.png";
 import moonshotKimiLogo from "@/assets/provider-icons/model-provider-moonshot-kimi.png";
 import openAiLogo from "@/assets/provider-icons/model-provider-openai.png";
+import stepFunLogo from "@/assets/provider-icons/model-provider-stepfun.png";
 import xAiLogo from "@/assets/provider-icons/model-provider-xai.png";
 import xiaomiMimoLogo from "@/assets/provider-icons/model-provider-xiaomi-mimo.png";
 import startPlanLogo from "@/assets/provider-icons/model-provider-start-plan.png";
@@ -38,6 +39,7 @@ const BUILTIN_PROVIDER_LOGO_ASSETS: Readonly<Record<string, BuiltinProviderLogoA
   deepseek: { light: deepSeekLogo },
   "alibaba-model-studio": { light: alibabaModelStudioLogo },
   "xiaomi-mimo": { light: xiaomiMimoLogo },
+  stepfun: { light: stepFunLogo },
   openai: { light: openAiLogo },
   anthropic: { light: anthropicLogo },
   xai: { light: xAiLogo },

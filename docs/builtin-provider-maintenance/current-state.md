@@ -1,15 +1,15 @@
 # 当前配置与维护状态
 
-新增候选、公开目录缺项和规则解析差异见[扩展计划](./expansion-plan.md)。下文仍记录 revision 33 的实际配置；研究建议尚未实施。
+新增候选、公开目录缺项和规则解析差异见[扩展计划](./expansion-plan.md)。下文记录 revision 35 的实际配置；研究建议尚未实施。
 
 ## 基线与口径
 
-- 检查日期：2026-10-14（北京时间）。代码基线：staging `68fac8de4fcc69972dc8c0a44b939702d3c571ea`，产品源码版本 3.15.3；不表示该版本已发布。
-- 正式/测试均为 schemaVersion 1、revision 33。本次文档 MR 未修改配置或 revision。
-- 21 个普通 API 模板，10 个固定账号 Provider；模板成员共 246 条，包含跨模板重复型号。
-- Model 规则 83、Model+API 规则 73、正式 Site 规则 54、测试 Site 规则 63、模板精确规则 248、固定 Provider 精确规则 30。
-- 正式文件 SHA-256：`361b778f89496a37540d23a9d309efe6cb8fc97d557119cefbffc67df2f93998`。
-- 测试文件 SHA-256：`ae897a66877b52ff4b227e2a972e9a1aa15ac33de7493ab78d72a15dd68c6374`。hash 针对基线 Git 内容（LF）；本地 CRLF checkout 需要按仓库换行归一后比较。
+- 检查日期：2026-10-26（北京时间）。代码基线：本仓库 main `967689af` 之上叠加本次未提交改动；产品源码版本 3.17.2；不表示该版本已发布。
+- 正式/测试均为 schemaVersion 1、revision 35。revision 34 在上一 MR 中新增 `.*MiniMax-M3\.1.*` 的 Model+API 规则（adaptive thinking 修正）但未同步本文档；revision 35 新增 `stepfun-step-plan` 模板与模型规则。
+- 22 个普通 API 模板，10 个固定账号 Provider；模板成员共 250 条，包含跨模板重复型号。
+- Model 规则 87、Model+API 规则 74、正式 Site 规则 54、测试 Site 规则 63、模板精确规则 252、固定 Provider 精确规则 30。
+- 正式文件 SHA-256：`74bdd8ac658cddd1569b6f686405bb2d046b8ca474d6d25be9583b41ec67a237`。
+- 测试文件 SHA-256：`70307afdce68863597101515bfcd9bef851a95a994131fede687804f3883eb80`。hash 针对基线 Git 内容（LF）；本地 CRLF checkout 需要按仓库换行归一后比较。
 
 清单直接从[正式 JSON](../../config/provider/zcode-builtin.json)提取。下面的启停是模板精确规则，不包含用户覆盖或实际 Key/权益；存在于列表不等于该入口在本轮已真实验证。
 
@@ -28,6 +28,7 @@
 | `qwen-alibaba-model-studio-intl` | `openai-chat-completions` | 14     | 2          |
 | `xiaomi-mimo`                    | `anthropic-messages`      | 4      | 4          |
 | `xiaomi-mimo-token-plan`         | `anthropic-messages`      | 2      | 2          |
+| `stepfun-step-plan`              | `anthropic-messages`      | 4      | 2          |
 | `openai`                         | `openai-responses`        | 10     | 4          |
 | `anthropic`                      | `anthropic-messages`      | 5      | 5          |
 | `xai`                            | `openai-responses`        | 3      | 2          |
@@ -108,6 +109,13 @@
 - Base URL：`https://token-plan-cn.xiaomimimo.com/anthropic`；Access：`api-key`。
 - 默认启用：`mimo-v2.6-pro`、`mimo-v2.6-flash`。
 - 默认关闭：无。
+
+### stepfun-step-plan
+
+- Base URL：`https://api.stepfun.com/step_plan`；Access：`api-key`。
+- 默认启用：`step-5-preview`、`step-3.7-flash`。
+- 默认关闭：`step-3.5-flash-2603`、`step-3.5-flash`。
+- 官方依据（2026-10-26）：Step Plan Anthropic 兼容端点与模型清单见 [Step Plan 快速开始](https://platform.stepfun.com/docs/zh/step-plan/quick-start.md) 与 [Claude Code 接入](https://platform.stepfun.com/docs/zh/guides/developer/integrations/claude-code.md)；推理走 `output_config.effort`，由通用 `anthropic-messages` 规则映射。`step-5-preview` 官方口径 1M 上下文 / 64K 输出 / 三档 effort；`step-3.7-flash` 256K 上下文 / 三档 effort；`step-3.5-flash-2603` 256K 上下文、纯文本、effort 仅 low/high；`step-3.5-flash` 256K 上下文、纯文本、官方未声明 effort 档位，按保守 `disabled/enabled` 声明。该模板本轮未做真实验证，处于待人工验证状态。
 
 ### openai
 
