@@ -6878,7 +6878,7 @@ const zhCN: Record<string, string> = {
   "resourceManager.network.empty": "等待新的网络请求…",
   "resourceManager.network.noMatches": "没有匹配的请求",
   "resourceManager.storage": "存储",
-  "resourceManager.appUsage": "ZCode",
+  "resourceManager.appUsage": "CodeDesign",
   "resourceManager.systemUsage": "整机",
   "resourceManager.category.base": "基础服务",
   "resourceManager.category.builtinPlugin": "内置插件",

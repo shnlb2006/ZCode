@@ -104,11 +104,11 @@ describe("desktop Linux deep link registration helpers", () => {
 
     const entry = createLinuxDeepLinkDesktopEntry({
       executablePath: "/opt/ZCode Preview/zcode-preview",
-      productName: "ZCode Preview",
+      productName: "CodeDesign Preview",
     });
 
-    expect(entry).toContain("Name=ZCode Preview");
-    expect(entry).toContain("StartupWMClass=ZCode Preview");
+    expect(entry).toContain("Name=CodeDesign Preview");
+    expect(entry).toContain("StartupWMClass=CodeDesign Preview");
     expect(entry).toContain('Exec="/opt/ZCode Preview/zcode-preview" %U');
     expect(entry).toContain("MimeType=x-scheme-handler/zcode;");
   });
