@@ -15,7 +15,11 @@ import {
   resolvePackagedNodePtyPrebuildPath,
   restoreTargetNodePtyPrebuild,
 } from "./scripts/node-pty-package-assets.mjs";
-import { cleanupPackagedSourcemaps } from "./scripts/packaged-sourcemap-cleanup.mjs";
+import {
+  cleanupPackagedSourcemaps,
+  removeSourceMapFilesInDirectory,
+  stripSourceMappingUrlCommentsInDirectory,
+} from "./scripts/packaged-sourcemap-cleanup.mjs";
 import { getTargetPlatform } from "./scripts/target-platform.mjs";
 import {
   resolveDesktopArtifactSuffix,
@@ -364,6 +368,11 @@ async function injectHoistedRuntimeModulesIntoAsar(context) {
     console.log("[afterPack] runtime modules already complete, skip app.asar rewrite");
     return;
   }
+  // 打印缺失模块名：定位 electron-builder 在 hoisted 布局下稳定漏拷的依赖，
+  // 修掉根因后这轮 extract/pack（约 7 分钟）即可整体跳过。
+  console.log(
+    `[afterPack] missing runtime modules: ${missingRuntimeModules.map((entry) => entry.moduleName).join(", ")}`,
+  );
   console.log(`[afterPack] missing runtime modules count=${missingRuntimeModules.length}`);
 
   // CI 会把 TMPDIR 指到项目内 .tmp，GitLab get_sources/clean 可能在脚本启动前清掉该目录。
@@ -404,6 +413,12 @@ async function injectHoistedRuntimeModulesIntoAsar(context) {
       }
     });
 
+    // 注入的运行时模块来自 node_modules 原文，可能携带第三方 sourceMappingURL 注释；
+    // 在重打 asar 前于暂存目录内即时清理，避免把引用带进最终产物。
+    runTimedSync("afterPack:strip-injected-sourcemap-references", () =>
+      stripSourceMappingUrlCommentsInDirectory(stagingNodeModulesDir),
+    );
+
     await runTimedAsync("afterPack:asar-pack", () =>
       replaceAppAsarFromStaging({
         sourceDir: stagingDir,
@@ -417,12 +432,30 @@ async function injectHoistedRuntimeModulesIntoAsar(context) {
   }
 }
 
+// 打包提速：out/ 是桌面端自身产物（tsup/vite bundle），在 beforePack 清理成本可忽略；
+// 第三方 node_modules 的引用清理需要整体解包/重打 app.asar（每次约 6 分钟），本地迭代包可用
+// ZCODE_SKIP_ASAR_SOURCEMAP_CLEANUP=1 跳过该重写（发布默认保持完整网关，不跳过）。
+// afterPack 里注入的运行时模块在拷贝进暂存目录后同样即时清理，保证不重新带入引用。
+function isAsarSourcemapCleanupSkipped() {
+  return process.env.ZCODE_SKIP_ASAR_SOURCEMAP_CLEANUP === "1";
+}
+
+function stripPackagedSourcemapSources() {
+  const outDir = resolve(desktopPackageRoot, "out");
+  stripSourceMappingUrlCommentsInDirectory(outDir);
+  removeSourceMapFilesInDirectory(outDir);
+}
+
 async function stripPackagedSourcemapReferences(context) {
   // electron-builder 的 files 规则能排除 .map 文件，但无法删除 JS/CSS 末尾
-  // 指向 sourcemap 的注释；afterPack 注入运行时依赖后也可能重新带入第三方 sourceMappingURL。
-  // 这里统一清理 app.asar 与 unpacked/extraResources，保证最终发布包不暴露 sourcemap 路径入口。
+  // 指向 sourcemap 的注释；注入运行时依赖后也可能重新带入第三方 sourceMappingURL。
+  // beforePack 已清理 out/；第三方引用的 asar 重写仅在未显式跳过时执行，
+  // 保证最终发布包不暴露 sourcemap 路径入口。
+  if (isAsarSourcemapCleanupSkipped()) {
+    console.log("[afterPack] ZCODE_SKIP_ASAR_SOURCEMAP_CLEANUP=1, skip app.asar sourcemap rewrite");
+  }
   await cleanupPackagedSourcemaps({
-    appAsarPath: resolveAppAsarPath(context),
+    appAsarPath: isAsarSourcemapCleanupSkipped() ? null : resolveAppAsarPath(context),
     resourcesDir: resolvePackagedResourcesDir(context),
     runAsarCommand,
     runTimedSync,
@@ -612,6 +645,7 @@ export default {
     `node_modules/node-pty/prebuilds/${targetPlatform.key}/**`,
   ],
   beforePack: async (context) => {
+    runTimedSync("beforePack:stripPackagedSourcemapSources", () => stripPackagedSourcemapSources());
     runTimedSync("beforePack:restoreTargetNodePtyPrebuild", () =>
       restoreTargetNodePtyPrebuild({ desktopPackageRoot, targetPlatform }),
     );

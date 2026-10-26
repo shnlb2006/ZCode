@@ -267,6 +267,12 @@ function printHelp() {
 环境变量:
   ZCODE_TARGET_OS              与 --os 等价
   ZCODE_TARGET_ARCH            与 --arch 等价
+  ZCODE_SKIP_PREPARE           与 --skip-prepare 等价（只改图标/配置时用，省约 3 分钟）
+  ZCODE_SKIP_BUILD             与 --skip-build 等价（未改源码时用，省约 3 分钟）
+  ZCODE_SKIP_ASAR_SOURCEMAP_CLEANUP=1
+                              本地迭代专用：跳过 afterPack 的 app.asar sourcemap 重写
+                              （省约 6 分钟）。发布包不要设置，否则第三方 node_modules 的
+                              sourceMappingURL 注释会随包发布。
 `);
 }
 
