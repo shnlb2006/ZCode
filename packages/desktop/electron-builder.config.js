@@ -420,11 +420,16 @@ async function rewriteAppAsarOnce(context) {
         }
       });
 
-      // 注入的运行时模块来自 node_modules 原文，可能携带第三方 sourceMappingURL 注释；
-      // 只清理刚拷贝进来的少量模块，成本可忽略，且不受 SKIP 开关影响。
-      runTimedSync("afterPack:strip-injected-sourcemap-references", () =>
-        stripSourceMappingUrlCommentsInDirectory(stagingNodeModulesDir),
-      );
+      // 注入的运行时模块来自 node_modules 原文，可能携带第三方 sourceMappingURL 注释。
+      // 只清理刚拷贝进来的模块目录（成本可忽略），全量 third-party 引用由下面的统一清理负责；
+      // 这一步不受 SKIP 开关影响，保证注入内容永远干净。
+      runTimedSync("afterPack:strip-injected-sourcemap-references", () => {
+        for (const runtimeModule of missingRuntimeModules) {
+          stripSourceMappingUrlCommentsInDirectory(
+            resolve(stagingNodeModulesDir, runtimeModule.moduleName),
+          );
+        }
+      });
     }
 
     if (needSourcemapCleanup) {
