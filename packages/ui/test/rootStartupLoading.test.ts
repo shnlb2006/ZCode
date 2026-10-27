@@ -6,16 +6,17 @@ import { RootStartupLoading, ZCodeStartupLogoBadge } from "@/root/RootStartupLoa
 describe("RootStartupLoading", () => {
   it("静态品牌图标不渲染呼吸动画", () => {
     const html = renderToStaticMarkup(createElement(ZCodeStartupLogoBadge, { animated: false }));
-    expect(html).toContain("<svg");
+    // 品牌图标改为纸飞机品牌包的 SVG 资源（测试环境内联为 data URL）；
+    // 静态态不得携带 SMIL 呼吸动画。
+    expect(html).toContain("data:image/svg+xml");
     expect(html).not.toContain("<animate");
   });
-  it("启动阻塞态使用整体呼吸的 ZCode SVG 而不是可见 loading 文案", () => {
+  it("启动阻塞态使用品牌图标而不是可见 loading 文案", () => {
     const html = renderToStaticMarkup(createElement(RootStartupLoading, { label: "加载中..." }));
 
     expect(html).toContain('data-testid="root-startup-loading"');
     expect(html).toContain('aria-label="加载中..."');
-    expect(html).toContain("<svg");
-    expect(html).toContain('attributeName="opacity"');
+    expect(html).toContain("data:image/svg+xml");
     expect(html).not.toContain(">加载中...<");
   });
 });

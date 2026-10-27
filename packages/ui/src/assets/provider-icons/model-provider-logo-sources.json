@@ -38,9 +38,9 @@
         "account:zai-team-coding-plan",
         "account:zai-offpeak-idle-plan"
       ],
-      "sourceUrl": "repository:packages/desktop/build/icons/128x128.png",
+      "sourceUrl": "repository-frozen-copy:packages/desktop/build/icons/128x128.png@pre-paper-plane",
       "sourceOwner": "Z.AI",
-      "normalization": "Byte-for-byte copy of the existing 128x128 ZCode application PNG. No extra Dock padding, redraw, inversion or added outline. User decision corrected in Todo148 on 2026-09-15."
+      "normalization": "Frozen byte-for-byte copy of the 128x128 ZCode application PNG captured on 2026-09-15 (Todo148). The referenced build/icons/128x128.png has since been replaced by the CodeDesign paper-plane icon, so this file is no longer derived from the live application icon; it stays as the historical Z.AI provider mark. No extra Dock padding, redraw, inversion or added outline."
     },
     {
       "brand": "BigModel",

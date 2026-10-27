@@ -11,7 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
-import darkEmptyStateLogoUrl from "@/assets/Z.svg";
+import darkEmptyStateLogoUrl from "@/assets/provider-icons/logo-mark-inverse.svg";
 import { cn } from "@/components/lib/utils.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useIsOfficeMode } from "@/hooks/useInterfaceMode.js";
@@ -256,15 +256,17 @@ function ZCodeEmptyStateLogo({ className }: { className?: string }) {
           "[mask-repeat:no-repeat] [mask-size:100%_100%]",
         )}
         width="400"
-        height="320"
-        viewBox="0 0 400 320"
+        height="400"
+        viewBox="0 0 512 512"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
-        <path
-          d="M398.97 0.5L147.576 319.5H1.03027L37.5996 273.081L120.167 169.603L120.171 169.598L215.342 47.5605L215.343 47.5615L252.424 0.5H398.97ZM264.544 273.271H372.527L336.082 319.498H189.886L202.642 303.307C217.584 284.34 240.398 273.271 264.544 273.271ZM209.164 0.5L202.786 8.58887C183.782 32.6885 154.782 46.752 124.091 46.752H25.9805L62.4268 0.5H209.164Z"
-          stroke="currentColor"
-        />
+        {/* 纸飞机品牌包 mark-color（深青主翼 + 薄荷副翼，透明底），用于浅色背景。 */}
+        <g transform="translate(0 55)">
+          <path fill="#075564" d="M40 142 472 48 170 243 182 354 151 242Z" />
+          <path fill="#49CCA2" d="M204 253 472 48 358 350Z" />
+          <path fill="#075564" d="M199 259 254 297 187 354Z" />
+        </g>
       </svg>
       {/* 深色资源包含专用渐变与模糊效果，不能通过 currentColor 复刻；主题类保证两套 Logo 互斥显示。 */}
       <img

@@ -28,10 +28,14 @@ function readSvgSize(source: string): { width: number; height: number } {
 }
 
 describe("Provider built-in logo assets", () => {
-  it("Z.AI PNG 原样复用无额外留白的应用图标，不再误用同名旧 SVG", () => {
-    const source = readFileSync(new URL("../../desktop/build/icons/128x128.png", import.meta.url));
+  it("Z.AI PNG 是冻结的历史应用图标副本，与现役纸飞机应用图标有意解耦", () => {
+    const liveAppIcon = readFileSync(
+      new URL("../../desktop/build/icons/128x128.png", import.meta.url),
+    );
     const packaged = readFileSync(new URL("model-provider-zai-app.png", assetDirectory));
-    expect(packaged.equals(source)).toBe(true);
+    // 2026-10-26 应用图标换成纸飞机品牌包后，Z.AI  provider 图标保持 2026-09-15
+    // 冻结的旧 ZCode 应用图标副本（供应商品牌标识），不再随应用图标联动。
+    expect(packaged.equals(liveAppIcon)).toBe(false);
     expect(readPngSize(packaged)).toEqual({ width: 128, height: 128 });
   });
   it("来源清单中的每个内置 Logo 素材本身都是方形", () => {
