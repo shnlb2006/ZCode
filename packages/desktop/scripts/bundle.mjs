@@ -743,7 +743,10 @@ async function main() {
   }
 
   if (!skipBuild) {
-    run(pnpmCommand, ["build"], buildEnv);
+    // 不调 `pnpm build`：它的脚本定义内部会再跑一遍 prepare:runtime-assets，与上面的
+    // 显式调用完全重复（每次浪费约 3 分钟）。prepare 的职责已由本脚本承担，
+    // 这里直接跑构建；--skip-prepare 也因此真正跳过 prepare（此前会被 build 内部又跑起来）。
+    run(pnpmCommand, ["run", "build:no-runtime-assets"], buildEnv);
   }
 
   await runTimedAsync("bundle:electron-builder", () =>

@@ -58,7 +58,13 @@ export function createDesktopProductionBuildPlan({ cwd, baseEnv = process.env })
           command: "pnpm",
           args: ["exec", "vite", "build"],
           cwd,
-          env,
+          env: {
+            ...env,
+            // rolldown 在 "rendering chunks" 阶段于大内存机器上发生过两次 OOM 崩溃
+            // （exit 3221225477 / 3221226505），直接废掉整条已建产物。与
+            // scripts/build-desktop-agent-cli.mjs 同款提高渲染进程堆上限。
+            NODE_OPTIONS: `${baseEnv.NODE_OPTIONS ? `${baseEnv.NODE_OPTIONS} ` : ""}--max-old-space-size=8192`,
+          },
         },
       ],
     },

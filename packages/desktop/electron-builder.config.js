@@ -16,7 +16,6 @@ import {
   restoreTargetNodePtyPrebuild,
 } from "./scripts/node-pty-package-assets.mjs";
 import {
-  cleanupPackagedSourcemaps,
   removeSourceMapFilesInDirectory,
   stripSourceMappingUrlCommentsInDirectory,
 } from "./scripts/packaged-sourcemap-cleanup.mjs";
@@ -353,7 +352,10 @@ function resolveMissingRuntimeModules(appAsarPath) {
   });
 }
 
-async function injectHoistedRuntimeModulesIntoAsar(context) {
+// 打包提速：运行时模块注入与 sourcemap 清理原本各自完整 extract/pack 一遍 app.asar
+// （各约 5-7 分钟）。合并为一次 extract →（copy 缺失模块 + 清理 sourcemap 引用与 .map）
+// → 一次 pack；任一侧都不需要修改时整体跳过这轮 IO。
+async function rewriteAppAsarOnce(context) {
   const appAsarPath = resolveAppAsarPath(context);
   if (!existsSync(appAsarPath)) {
     throw new Error(`打包产物缺少 app.asar: ${appAsarPath}`);
@@ -362,18 +364,22 @@ async function injectHoistedRuntimeModulesIntoAsar(context) {
   const missingRuntimeModules = runTimedSync("afterPack:scan-missing-runtime-modules", () =>
     resolveMissingRuntimeModules(appAsarPath),
   );
-  if (missingRuntimeModules.length === 0) {
-    // 之前 afterPack 每次都完整 extract/pack app.asar，即使运行时依赖已经齐全也会重复重写。
-    // 这会把每次打包固定拉长十几秒到几十秒。先做缺失扫描，只有真的缺包才执行重写流程。
-    console.log("[afterPack] runtime modules already complete, skip app.asar rewrite");
+  const needInjection = missingRuntimeModules.length > 0;
+  // ZCODE_SKIP_ASAR_SOURCEMAP_CLEANUP=1 只跳过 asar 内第三方引用的全量清理（本地迭代用，
+  // 省掉这轮 extract/pack）；发布默认执行，保证安装包不暴露 sourcemap 路径入口。
+  const needSourcemapCleanup = !isAsarSourcemapCleanupSkipped();
+  if (!needInjection && !needSourcemapCleanup) {
+    console.log("[afterPack] app.asar rewrite not needed, skip");
+    cleanupPackagedResourcesSourcemaps(context);
     return;
   }
-  // 打印缺失模块名：定位 electron-builder 在 hoisted 布局下稳定漏拷的依赖，
-  // 修掉根因后这轮 extract/pack（约 7 分钟）即可整体跳过。
-  console.log(
-    `[afterPack] missing runtime modules: ${missingRuntimeModules.map((entry) => entry.moduleName).join(", ")}`,
-  );
-  console.log(`[afterPack] missing runtime modules count=${missingRuntimeModules.length}`);
+  if (needInjection) {
+    // 打印缺失模块名：定位 electron-builder 在 hoisted 布局下稳定漏拷的依赖，
+    // 修掉根因后这轮 extract/pack 即可整体跳过。
+    console.log(
+      `[afterPack] missing runtime modules: ${missingRuntimeModules.map((entry) => entry.moduleName).join(", ")}`,
+    );
+  }
 
   // CI 会把 TMPDIR 指到项目内 .tmp，GitLab get_sources/clean 可能在脚本启动前清掉该目录。
   // afterPack 里重写 app.asar 同样依赖 mkdtempSync，必须自己兜底创建父目录，避免后续签名阶段只看到 .app 消失。
@@ -384,40 +390,57 @@ async function injectHoistedRuntimeModulesIntoAsar(context) {
       runAsarCommand(["extract", appAsarPath, stagingDir]),
     );
 
-    const stagingNodeModulesDir = resolve(stagingDir, "node_modules");
-    mkdirSync(stagingNodeModulesDir, { recursive: true });
+    if (needInjection) {
+      const stagingNodeModulesDir = resolve(stagingDir, "node_modules");
+      mkdirSync(stagingNodeModulesDir, { recursive: true });
 
-    runTimedSync("afterPack:copy-runtime-modules", () => {
-      for (const runtimeModule of missingRuntimeModules) {
-        const { moduleName, sourceModulePath } = runtimeModule;
-        const targetModulePath = resolve(stagingNodeModulesDir, moduleName);
+      runTimedSync("afterPack:copy-runtime-modules", () => {
+        for (const runtimeModule of missingRuntimeModules) {
+          const { moduleName, sourceModulePath } = runtimeModule;
+          const targetModulePath = resolve(stagingNodeModulesDir, moduleName);
 
-        if (!sourceModulePath) {
-          throw new Error(
-            `未找到运行时依赖 ${moduleName}，已搜索: ${runtimeModuleLookupRoots
-              .map((lookupRoot) => resolve(lookupRoot, "node_modules", moduleName))
-              .join(", ")}`,
-          );
+          if (!sourceModulePath) {
+            throw new Error(
+              `未找到运行时依赖 ${moduleName}，已搜索: ${runtimeModuleLookupRoots
+                .map((lookupRoot) => resolve(lookupRoot, "node_modules", moduleName))
+                .join(", ")}`,
+            );
+          }
+
+          // pnpm hoisted 布局下，electron-builder 可能把主包打进 app.asar，
+          // 却漏掉它解析时还要去根 node_modules 找的运行时依赖。
+          // 之前 require-in-the-middle 漏过 module-details-from-path，这次 @fiahfy/icns 又漏了 pngjs，
+          // 最终都会在已安装应用里触发 Cannot find module 并让主进程启动直接崩溃。
+          // 这里按 package.json 递归补齐依赖闭包，避免每次只补一个缺失包、上线后再暴露下一个子依赖。
+          // 只靠 package.json 显式依赖、本包 node_modules 镜像、files include 都没让它稳定进 asar，
+          // 所以在 afterPack 阶段直接重写 app.asar，先把这些运行时包补进去，再交给后续签名和出包。
+          mkdirSync(dirname(targetModulePath), { recursive: true });
+          rmSync(targetModulePath, { force: true, recursive: true });
+          cpSync(sourceModulePath, targetModulePath, { recursive: true });
         }
+      });
 
-        // pnpm hoisted 布局下，electron-builder 可能把主包打进 app.asar，
-        // 却漏掉它解析时还要去根 node_modules 找的运行时依赖。
-        // 之前 require-in-the-middle 漏过 module-details-from-path，这次 @fiahfy/icns 又漏了 pngjs，
-        // 最终都会在已安装应用里触发 Cannot find module 并让主进程启动直接崩溃。
-        // 这里按 package.json 递归补齐依赖闭包，避免每次只补一个缺失包、上线后再暴露下一个子依赖。
-        // 只靠 package.json 显式依赖、本包 node_modules 镜像、files include 都没让它稳定进 asar，
-        // 所以在 afterPack 阶段直接重写 app.asar，先把这些运行时包补进去，再交给后续签名和出包。
-        mkdirSync(dirname(targetModulePath), { recursive: true });
-        rmSync(targetModulePath, { force: true, recursive: true });
-        cpSync(sourceModulePath, targetModulePath, { recursive: true });
-      }
-    });
+      // 注入的运行时模块来自 node_modules 原文，可能携带第三方 sourceMappingURL 注释；
+      // 只清理刚拷贝进来的少量模块，成本可忽略，且不受 SKIP 开关影响。
+      runTimedSync("afterPack:strip-injected-sourcemap-references", () =>
+        stripSourceMappingUrlCommentsInDirectory(stagingNodeModulesDir),
+      );
+    }
 
-    // 注入的运行时模块来自 node_modules 原文，可能携带第三方 sourceMappingURL 注释；
-    // 在重打 asar 前于暂存目录内即时清理，避免把引用带进最终产物。
-    runTimedSync("afterPack:strip-injected-sourcemap-references", () =>
-      stripSourceMappingUrlCommentsInDirectory(stagingNodeModulesDir),
-    );
+    if (needSourcemapCleanup) {
+      // electron-builder 的 files 规则能排除 .map 文件，但无法删除 JS/CSS 末尾
+      // 指向 sourcemap 的注释；第三方 node_modules 的引用只能在这一轮统一清理。
+      const summary = runTimedSync("afterPack:strip-packaged-sourcemap-references", () => {
+        const stripped = stripSourceMappingUrlCommentsInDirectory(stagingDir);
+        const removed = removeSourceMapFilesInDirectory(stagingDir);
+        return { stripped, removed };
+      });
+      console.log(
+        `[afterPack] stripped sourceMappingURL references=${summary.stripped.referencesRemoved} files=${summary.stripped.filesChanged} maps=${summary.removed.filesRemoved}`,
+      );
+    } else {
+      console.log("[afterPack] ZCODE_SKIP_ASAR_SOURCEMAP_CLEANUP=1, skip app.asar sourcemap cleanup");
+    }
 
     await runTimedAsync("afterPack:asar-pack", () =>
       replaceAppAsarFromStaging({
@@ -430,12 +453,13 @@ async function injectHoistedRuntimeModulesIntoAsar(context) {
   } finally {
     rmSync(stagingDir, { force: true, recursive: true });
   }
+
+  cleanupPackagedResourcesSourcemaps(context);
 }
 
 // 打包提速：out/ 是桌面端自身产物（tsup/vite bundle），在 beforePack 清理成本可忽略；
-// 第三方 node_modules 的引用清理需要整体解包/重打 app.asar（每次约 6 分钟），本地迭代包可用
+// 第三方 node_modules 的引用清理需要整体解包/重打 app.asar，本地迭代包可用
 // ZCODE_SKIP_ASAR_SOURCEMAP_CLEANUP=1 跳过该重写（发布默认保持完整网关，不跳过）。
-// afterPack 里注入的运行时模块在拷贝进暂存目录后同样即时清理，保证不重新带入引用。
 function isAsarSourcemapCleanupSkipped() {
   return process.env.ZCODE_SKIP_ASAR_SOURCEMAP_CLEANUP === "1";
 }
@@ -446,28 +470,14 @@ function stripPackagedSourcemapSources() {
   removeSourceMapFilesInDirectory(outDir);
 }
 
-async function stripPackagedSourcemapReferences(context) {
-  // electron-builder 的 files 规则能排除 .map 文件，但无法删除 JS/CSS 末尾
-  // 指向 sourcemap 的注释；注入运行时依赖后也可能重新带入第三方 sourceMappingURL。
-  // beforePack 已清理 out/；第三方引用的 asar 重写仅在未显式跳过时执行，
-  // 保证最终发布包不暴露 sourcemap 路径入口。
-  if (isAsarSourcemapCleanupSkipped()) {
-    console.log("[afterPack] ZCODE_SKIP_ASAR_SOURCEMAP_CLEANUP=1, skip app.asar sourcemap rewrite");
-  }
-  await cleanupPackagedSourcemaps({
-    appAsarPath: isAsarSourcemapCleanupSkipped() ? null : resolveAppAsarPath(context),
-    resourcesDir: resolvePackagedResourcesDir(context),
-    runAsarCommand,
-    runTimedSync,
-    runTimedAsync,
-    replaceAppAsarFromStaging: ({ sourceDir, appAsarPath }) =>
-      replaceAppAsarFromStaging({
-        sourceDir,
-        appAsarPath,
-        targetPlatformKey: targetPlatform.key,
-        runAsarCommand,
-      }),
-  });
+// extraResources（glm/tools/licenses）落在 resources 目录，直接原地清理，不走 asar。
+function cleanupPackagedResourcesSourcemaps(context) {
+  const resourcesDir = resolvePackagedResourcesDir(context);
+  const stripped = stripSourceMappingUrlCommentsInDirectory(resourcesDir);
+  const removed = removeSourceMapFilesInDirectory(resourcesDir);
+  console.log(
+    `[afterPack] resources sourcemap cleanup references=${stripped.referencesRemoved} files=${stripped.filesChanged} maps=${removed.filesRemoved}`,
+  );
 }
 
 function assertPackagedNativeResourcePolicy(context) {
@@ -693,12 +703,9 @@ export default {
             configuredTargetPlatform: targetPlatform,
           })
         : null;
-    await runTimedAsync("afterPack:injectHoistedRuntimeModulesIntoAsar", () =>
-      injectHoistedRuntimeModulesIntoAsar(context),
-    );
-    await runTimedAsync("afterPack:stripPackagedSourcemapReferences", () =>
-      stripPackagedSourcemapReferences(context),
-    );
+    // 运行时模块注入与 sourcemap 清理合并为一次 asar extract/pack（各自约 5-7 分钟，
+    // 合并后只付出一轮 IO）；任一侧无需修改时整体跳过。
+    await runTimedAsync("afterPack:rewriteAppAsarOnce", () => rewriteAppAsarOnce(context));
     runTimedSync("afterPack:assertPackagedNativeResourcePolicy", () =>
       assertPackagedNativeResourcePolicy(context),
     );
