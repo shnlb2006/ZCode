@@ -839,6 +839,8 @@ test("allows skill-only official plugins when SEA runtime assets are required", 
     await writeVisualizePluginFixture(root);
     await writeTestFile(root, "packages/android-emulator-plugin/.zcode-plugin/plugin.json", "{}");
     await writeTestFile(root, "packages/android-emulator-plugin/dist/mcp/server.js", "");
+    await writeTestFile(root, "packages/data-plugin/.zcode-plugin/plugin.json", "{}");
+    await writeTestFile(root, "packages/data-plugin/dist/mcp/server.js", "");
     await writeTestFile(root, "packages/node-repl-host/.zcode-plugin/plugin.json", "{}");
     await writeTestFile(root, "packages/node-repl-host/dist/mcp/server.js", "");
     await writeTestFile(root, "packages/browser-use-plugin/.zcode-plugin/plugin.json", "{}");
@@ -1008,6 +1010,8 @@ test("requires the Browser Use client alongside the SEA MCP runtime", async () =
       await writeTestFile(root, `packages/${pluginName}/.zcode-plugin/plugin.json`, "{}");
     }
     await writeTestFile(root, "packages/android-emulator-plugin/dist/mcp/server.js", "");
+    await writeTestFile(root, "packages/data-plugin/.zcode-plugin/plugin.json", "{}");
+    await writeTestFile(root, "packages/data-plugin/dist/mcp/server.js", "");
     await writeTestFile(root, "packages/node-repl-host/.zcode-plugin/plugin.json", "{}");
     await writeTestFile(root, "packages/node-repl-host/dist/mcp/server.js", "");
     await writeDocumentPluginFixtures(root);

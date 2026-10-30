@@ -687,6 +687,19 @@ modules:
       app: .
     owner: plugin
 
+  # data-plugin：受控数据库调试 MCP server，由 architecture:adopt 登记
+  - id: data-plugin
+    roots:
+      - apps/zcode-cli/packages/data-plugin
+    managed: true
+    requires: []
+    publicEntrypoints:
+      - apps/zcode-cli/packages/data-plugin/index.ts
+      - apps/zcode-cli/packages/data-plugin/contract.ts
+    layers:
+      app: .
+    owner: plugin
+
   # embedded-browser-permission：由 architecture:adopt 登记
   - id: embedded-browser-permission
     roots:

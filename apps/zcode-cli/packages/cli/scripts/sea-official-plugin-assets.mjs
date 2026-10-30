@@ -77,6 +77,15 @@ export const officialSeaPlugins = [
   },
   {
     marketplace: "zcode-plugins-official",
+    name: "data",
+    packageName: "@zcode/data-plugin",
+    requiresRuntime: true,
+    requiredRuntimePaths: ["dist/mcp/server.js"],
+    rootPath: join("packages", "data-plugin"),
+    version: "0.1.0",
+  },
+  {
+    marketplace: "zcode-plugins-official",
     name: "documents",
     packageName: "@zcode/documents-plugin",
     // 0.2.0 起带查看面板：SEA 必须在嵌入前校验 office-runtime 构建出的 server 与面板资源。

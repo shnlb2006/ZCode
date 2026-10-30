@@ -1,0 +1,14 @@
+{
+  "name": "data",
+  "version": "0.1.0",
+  "description": "Provides governed read-only database access for data debugging in ZCode.",
+  "author": { "name": "Z.ai" },
+  "license": "MIT",
+  "mcpServers": {
+    "data": {
+      "command": "node",
+      "args": ["${ZCODE_PLUGIN_ROOT}/dist/mcp/server.js"],
+      "cwd": "${ZCODE_PROJECT_DIR}"
+    }
+  }
+}

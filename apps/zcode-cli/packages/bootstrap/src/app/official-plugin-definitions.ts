@@ -427,6 +427,28 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
     // marketplace 条目都对齐；具体版本由原子 producer bump 工作流维护。
     version: "0.6.5",
   },
+  {
+    listing: {
+      author: ZAI_AUTHOR,
+      category: "developer-tools",
+      displayName: "Data Debug",
+      displayName_i18n: { "zh-CN": "数据库调试" },
+      description_i18n: {
+        "zh-CN": "对已注册数据源执行受控查询：默认只读、行数上限、连接串只走环境变量引用。",
+      },
+    },
+    name: "data",
+    // dist/mcp/server.js 缺失即拒绝 seed：没有运行时产物的插件装出来也无法连接。
+    requiredSeedPaths: ["dist/mcp/server.js"],
+    rootCandidates: [
+      "packages/data-plugin",
+      "../data-plugin",
+      "../../data-plugin",
+      "../../../data-plugin",
+    ],
+    // 默认不启用：数据访问按需开启，不随首次安装进入用户的工具表。
+    version: "0.1.0",
+  },
 ];
 
 // 在 official plugin 定义里标了 defaultEnabled: true 的, 拼成 `<name>@<marketplace>` 形式,
